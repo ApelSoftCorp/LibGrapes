@@ -10,7 +10,17 @@ local number = require("grapes.Number")
 local unicode = require("unicode")
 local computer = require("computer")
 
--- Sleeps "time" of seconds via "busy-wait" concept-----------------------------------------------------------------------------------------
+-- Sleeps "time" of seconds via "busy-wait" concept
+function event.sleep(time)
+	checkArg(1, time, "number", "nil")
+
+	local deadline = computer.uptime() + (time or 0)
+	repeat
+		event.pull(deadline - computer.uptime())
+	until computer.uptime() >= deadline
+end
+
+-----------------------------------------------------------------------------------------
 
 local GUI = {
 	ALIGNMENT_HORIZONTAL_LEFT = 1,
@@ -37,17 +47,14 @@ local GUI = {
 	SWITCH_ANIMATION_DURATION = 0.3,
 	FILESYSTEM_DIALOG_ANIMATION_DURATION = 0.5,
 	
-	CONTEXT_MENU_DEFAULT_BACKGROUND_COLOR = 0x1E1E1E,
-	CONTEXT_MENU_DEFAULT_ICON_COLOR = 0x696969,
-	CONTEXT_MENU_DEFAULT_TEXT_COLOR = 0xD2D2D2,
+	CONTEXT_MENU_SEPARATOR_COLOR = 0xA5A5A5,
+	CONTEXT_MENU_DEFAULT_TEXT_COLOR = 0x2D2D2D,
+	CONTEXT_MENU_DEFAULT_BACKGROUND_COLOR = 0xFFFFFF,
 	CONTEXT_MENU_PRESSED_BACKGROUND_COLOR = 0x3366CC,
-	CONTEXT_MENU_PRESSED_ICON_COLOR = 0xB4B4B4,
 	CONTEXT_MENU_PRESSED_TEXT_COLOR = 0xFFFFFF,
-	CONTEXT_MENU_DISABLED_ICON_COLOR = 0x5A5A5A,
-	CONTEXT_MENU_DISABLED_TEXT_COLOR = 0x5A5A5A,
-	CONTEXT_MENU_BACKGROUND_TRANSPARENCY = nil,
+	CONTEXT_MENU_DISABLED_COLOR = 0x878787,
+	CONTEXT_MENU_BACKGROUND_TRANSPARENCY = 0.18,
 	CONTEXT_MENU_SHADOW_TRANSPARENCY = 0.4,
-	CONTEXT_MENU_SEPARATOR_COLOR = 0x2D2D2D,
 
 	BACKGROUND_CONTAINER_PANEL_COLOR = 0x0,
 	BACKGROUND_CONTAINER_TITLE_COLOR = 0xE1E1E1,
@@ -522,6 +529,7 @@ local function workspaceStart(workspace, eventPullTimeout)
 end
 
 local function workspaceStop(workspace)
+	--screen.clear(0x0)
 	workspace.needClose = true
 end
 
@@ -555,7 +563,7 @@ local function pressableDraw(pressable)
 		screen.drawRectangle(pressable.x, pressable.y, pressable.width, pressable.height, background, text, " ")
 	end
 	
-	screen.drawText(math.floor(pressable.x + pressable.width / 2 - unicode.wlen(pressable.text) / 2), math.floor(pressable.y + pressable.height / 2), text, pressable.text)
+	screen.drawText(math.floor(pressable.x + pressable.width / 2 - unicode.len(pressable.text) / 2), math.floor(pressable.y + pressable.height / 2), text, pressable.text)
 end
 
 local function pressableHandlePress(workspace, pressable, ...)
@@ -616,13 +624,11 @@ local function buttonPlayAnimation(button, onFinish)
 				if button.colors.default.background and button.colors.pressed.background then
 					button.animationCurrentBackground = color.transition(button.colors.pressed.background, button.colors.default.background, animation.position)
 				end
-				
 				button.animationCurrentText = color.transition(button.colors.pressed.text, button.colors.default.text, animation.position)
 			else
 				if button.colors.default.background and button.colors.pressed.background then
 					button.animationCurrentBackground = color.transition(button.colors.default.background, button.colors.pressed.background, animation.position)
 				end
-
 				button.animationCurrentText = color.transition(button.colors.default.text, button.colors.pressed.text, animation.position)
 			end
 		end,
@@ -679,7 +685,7 @@ local function buttonGetColors(button)
 end
 
 local function buttonDrawText(button, textColor)
-	screen.drawText(math.floor(button.x + button.width / 2 - unicode.wlen(button.text) / 2), math.floor(button.y + button.height / 2), textColor, button.text)
+	screen.drawText(math.floor(button.x + button.width / 2 - unicode.len(button.text) / 2), math.floor(button.y + button.height / 2), textColor, button.text)
 end
 
 local function buttonDraw(button)
@@ -705,7 +711,6 @@ local function roundedButtonDraw(button)
 
 	if backgroundColor then
 		local x2, y2 = button.x + button.width - 1, button.y + button.height - 1
-		
 		if button.height > 1 then
 			screen.drawText(button.x + 1, button.y, backgroundColor, string.rep("▄", button.width - 2))
 			screen.drawText(button.x, button.y, backgroundColor, "⣠")
@@ -717,8 +722,8 @@ local function roundedButtonDraw(button)
 			screen.drawText(button.x, y2, backgroundColor, "⠙")
 			screen.drawText(x2, y2, backgroundColor, "⠋")
 		else
-			screen.drawRectangle(button.x + 1, button.y, button.width - 2, button.height, backgroundColor, textColor, " ")
-			GUI.drawRoundedCorners(button.x, button.y, button.width, button.height, backgroundColor)
+			screen.drawRectangle(button.x, button.y, button.width, button.height, backgroundColor, textColor, " ")
+			GUI.roundedCorners(button.x, button.y, button.width, button.height, backgroundColor)
 		end
 	end
 
@@ -749,7 +754,7 @@ local function buttonCreate(x, y, width, height, backgroundColor, textColor, bac
 end
 
 local function adaptiveButtonCreate(x, y, xOffset, yOffset, backgroundColor, textColor, backgroundPressedColor, textPressedColor, text)
-	return buttonCreate(x, y, unicode.wlen(text) + xOffset * 2, yOffset * 2 + 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, text)
+	return buttonCreate(x, y, unicode.len(text) + xOffset * 2, yOffset * 2 + 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, text)
 end
 
 function GUI.button(...)
@@ -856,7 +861,7 @@ local function drawLabel(object)
 		object.height,
 		object.horizontalAlignment,
 		object.verticalAlignment,
-		unicode.wlen(object.text),
+		unicode.len(object.text),
 		1
 	)
 	screen.drawText(math.floor(xText), math.floor(yText), object.colors.text, object.text)
@@ -918,7 +923,7 @@ local function drawProgressBar(object)
 
 	if object.showValue then
 		local stringValue = (object.valuePrefix or "") .. object.value .. (object.valuePostfix or "")
-		screen.drawText(math.floor(object.x + object.width / 2 - unicode.wlen(stringValue) / 2), object.y + 1, object.colors.value, stringValue)
+		screen.drawText(math.floor(object.x + object.width / 2 - unicode.len(stringValue) / 2), object.y + 1, object.colors.value, stringValue)
 	end
 
 	return object
@@ -951,9 +956,9 @@ function GUI.drawShadow(x, y, width, height, transparency, thin)
 	end
 end
 
-function GUI.drawRoundedCorners(x, y, width, height, color, transparency)
-	screen.drawText(x, y, color, "◖", transparency)
-	screen.drawText(x + width - 1, y, color, "◗", transparency)
+function GUI.roundedCorners(x, y, width, height, color, transparency)
+	screen.drawText(x - 1, y, color, "⠰", transparency)
+	screen.drawText(x + width, y, color, "⠆", transparency)
 end
 
 --------------------------------------------------------------------------------
@@ -1021,7 +1026,7 @@ local function codeViewDraw(codeView)
 	local y, toLine, colorScheme, patterns = codeView.y, codeView.fromLine + codeView.height - 1, codeView.syntaxColorScheme, codeView.syntaxPatterns
 	
 	-- Line numbers bar and code area
-	codeView.lineNumbersWidth = unicode.wlen(tostring(toLine)) + 2
+	codeView.lineNumbersWidth = unicode.len(tostring(toLine)) + 2
 	codeView.codeAreaPosition = codeView.x + codeView.lineNumbersWidth
 	codeView.codeAreaWidth = codeView.width - codeView.lineNumbersWidth
 	
@@ -1041,7 +1046,7 @@ local function codeViewDraw(codeView)
 				screen.drawRectangle(codeView.codeAreaPosition, y, codeView.codeAreaWidth, 1, codeView.highlights[line], colorScheme.text, " ")
 			end
 
-			screen.drawText(codeView.codeAreaPosition - unicode.wlen(text) - 1, y, colorScheme.lineNumbersText, text)
+			screen.drawText(codeView.codeAreaPosition - unicode.len(text) - 1, y, colorScheme.lineNumbersText, text)
 			
 			y = y + 1
 		else
@@ -1216,7 +1221,7 @@ local function colorSelectorDraw(colorSelector)
 		screen.drawText(colorSelector.x, colorSelector.y + colorSelector.height - 1, overlayColor, string.rep("▄", colorSelector.width), 0.8)
 	end
 	
-	screen.drawText(math.ceil(colorSelector.x + colorSelector.height / 2), colorSelector.y + math.floor(colorSelector.height / 2), overlayColor, text.limit(colorSelector.text, colorSelector.width - 2))
+	screen.drawText(colorSelector.x + 1, colorSelector.y + math.floor(colorSelector.height / 2), overlayColor, text.limit(colorSelector.text, colorSelector.width - 2))
 	
 	return colorSelector
 end
@@ -1303,21 +1308,21 @@ local function drawChart(object)
 	for y = object.y + object.height - 3, object.y + 1, -chartHeight * object.yAxisValueInterval do
 		local stringValue = getAxisValue(value, object.yAxisPostfix, object.roundValues)
 		
-		yAxisValueMaxWidth = math.max(yAxisValueMaxWidth, unicode.wlen(stringValue))
+		yAxisValueMaxWidth = math.max(yAxisValueMaxWidth, unicode.len(stringValue))
 		table.insert(yAxisValues, {y = math.ceil(y), value = stringValue})
 		value = value + dy * object.yAxisValueInterval
 	end
 	
 	local stringValue = getAxisValue(yMax, object.yAxisPostfix, object.roundValues)
 	table.insert(yAxisValues, {y = object.y, value = stringValue})
-	yAxisValueMaxWidth = math.max(yAxisValueMaxWidth, unicode.wlen(stringValue))
+	yAxisValueMaxWidth = math.max(yAxisValueMaxWidth, unicode.len(stringValue))
 
 	local chartWidth = object.width - (object.showYAxisValues and yAxisValueMaxWidth + 2 or 0) 
 	local chartX = object.x + object.width - chartWidth
 	
 	for i = 1, #yAxisValues do
 		if object.showYAxisValues then
-			screen.drawText(chartX - unicode.wlen(yAxisValues[i].value) - 2, yAxisValues[i].y, object.colors.axisValue, yAxisValues[i].value)
+			screen.drawText(chartX - unicode.len(yAxisValues[i].value) - 2, yAxisValues[i].y, object.colors.axisValue, yAxisValues[i].value)
 		end
 		screen.drawText(chartX, yAxisValues[i].y, object.colors.helpers, string.rep("─", chartWidth))
 	end
@@ -1327,11 +1332,11 @@ local function drawChart(object)
 		value = xMin
 		for x = chartX, chartX + chartWidth - 2, chartWidth * object.xAxisValueInterval do
 			local stringValue = getAxisValue(value, object.xAxisPostfix, object.roundValues)
-			screen.drawText(math.floor(x - unicode.wlen(stringValue) / 2), object.y + object.height - 1, object.colors.axisValue, stringValue)
+			screen.drawText(math.floor(x - unicode.len(stringValue) / 2), object.y + object.height - 1, object.colors.axisValue, stringValue)
 			value = value + dx * object.xAxisValueInterval
 		end
 		local value = getAxisValue(xMax, object.xAxisPostfix, object.roundValues)
-		screen.drawText(object.x + object.width - unicode.wlen(value), object.y + object.height - 1, object.colors.axisValue, value)
+		screen.drawText(object.x + object.width - unicode.len(value), object.y + object.height - 1, object.colors.axisValue, value)
 	end
 
 	-- Axis lines
@@ -1397,7 +1402,7 @@ end
 
 local function switchAndLabelDraw(switchAndLabel)
 	switchAndLabel.label.width = switchAndLabel.width
-	switchAndLabel.switch.localX = switchAndLabel.width - switchAndLabel.switch.width + 1
+	switchAndLabel.switch.localX = switchAndLabel.width - switchAndLabel.switch.width
 
 	switchAndLabel.label.x, switchAndLabel.label.y = switchAndLabel.x + switchAndLabel.label.localX - 1, switchAndLabel.y + switchAndLabel.label.localY - 1
 	switchAndLabel.switch.x, switchAndLabel.switch.y = switchAndLabel.x + switchAndLabel.switch.localX - 1, switchAndLabel.y + switchAndLabel.switch.localY - 1
@@ -1426,13 +1431,13 @@ local function sliderDraw(object)
 	
 	if object.showMaximumAndMinimumValues then
 		local stringMaximumValue, stringMinimumValue = tostring(object.roundValues and math.floor(object.maximumValue) or number.roundToDecimalPlaces(object.maximumValue, 2)), tostring(object.roundValues and math.floor(object.minimumValue) or number.roundToDecimalPlaces(object.minimumValue, 2))
-		screen.drawText(object.x - unicode.wlen(stringMinimumValue) - 1, object.y, object.colors.value, stringMinimumValue)
+		screen.drawText(object.x - unicode.len(stringMinimumValue) - 1, object.y, object.colors.value, stringMinimumValue)
 		screen.drawText(object.x + object.width + 1, object.y, object.colors.value, stringMaximumValue)
 	end
 
 	if object.currentValuePrefix or object.currentValuePostfix then
 		local stringCurrentValue = (object.currentValuePrefix or "") .. (object.roundValues and math.floor(object.value) or number.roundToDecimalPlaces(object.value, 2)) .. (object.currentValuePostfix or "")
-		screen.drawText(math.floor(object.x + object.width / 2 - unicode.wlen(stringCurrentValue) / 2), object.y + 1, object.colors.value, stringCurrentValue)
+		screen.drawText(math.floor(object.x + object.width / 2 - unicode.len(stringCurrentValue) / 2), object.y + 1, object.colors.value, stringCurrentValue)
 	end
 
 	local activeWidth = number.round((object.value - object.minimumValue) / (object.maximumValue - object.minimumValue) * object.width)
@@ -1498,46 +1503,23 @@ end
 --------------------------------------------------------------------------------
 
 local function switchDraw(switch)
-	-- ◖◗
-	-- ⠆⠰
+	screen.drawText(switch.x - 1, switch.y, switch.colors.passive, "⠰")
+	screen.drawRectangle(switch.x, switch.y, switch.width, 1, switch.colors.passive, 0x0, " ")
+	screen.drawText(switch.x + switch.width, switch.y, switch.colors.passive, "⠆")
 
-	-- Sides
-	if switch.pipePosition > 1 then
-		screen.drawText(switch.x, switch.y, switch.colors.active, "◖")
-	end
+	screen.drawText(switch.x - 1, switch.y, switch.colors.active, "⠰")
+	screen.drawRectangle(switch.x, switch.y, switch.pipePosition - 1, 1, switch.colors.active, 0x0, " ")
 
-	if switch.pipePosition < switch.width - 1 then
-		screen.drawText(switch.x + switch.width - 1, switch.y, switch.colors.passive, "◗")
-	end
-
-	-- Background
-	if switch.width > 2 then
-		-- Active
-		local width = switch.pipePosition - 1
-
-		if width > 0 then
-			screen.drawRectangle(switch.x + 1, switch.y, width, 1, switch.colors.active, 0x0, " ")
-		end
-
-		-- Passive
-		width = switch.width - switch.pipePosition - 1
-
-		if width > 0 then
-			screen.drawRectangle(switch.x + switch.pipePosition, switch.y, width, 1, switch.colors.passive, 0x0, " ")
-		end
-	end
-
-	-- Pipe
-	screen.drawText(switch.x + switch.pipePosition - 1, switch.y, switch.colors.pipe, "◖")
-	screen.set(switch.x + switch.pipePosition, switch.y, switch.colors.pipe, switch.colors.pipe, " ")
-	screen.drawText(switch.x + switch.pipePosition + 1, switch.y, switch.colors.pipe, "◗")
+	screen.drawText(switch.x + switch.pipePosition - 2, switch.y, switch.colors.pipe, "⠰")
+	screen.drawRectangle(switch.x + switch.pipePosition - 1, switch.y, 2, 1, switch.colors.pipe, 0x0, " ")
+	screen.drawText(switch.x + switch.pipePosition + 1, switch.y, switch.colors.pipe, "⠆")
 	
 	return switch
 end
 
 local function switchSetState(switch, state)
 	switch.state = state
-	switch.pipePosition = switch.state and switch.width - 2 or 1
+	switch.pipePosition = switch.state and switch.width - 1 or 1
 
 	return switch
 end
@@ -1551,9 +1533,9 @@ local function switchEventHandler(workspace, switch, e1, ...)
 		switch:addAnimation(
 			function(animation)
 				if switch.state then
-					switch.pipePosition = number.round(1 + animation.position * (switch.width - 3))
+					switch.pipePosition = number.round(1 + animation.position * (switch.width - 2))
 				else	
-					switch.pipePosition = number.round(1 + (1 - animation.position) * (switch.width - 3))
+					switch.pipePosition = number.round(1 + (1 - animation.position) * (switch.width - 2))
 				end
 			end,
 			
@@ -2037,7 +2019,7 @@ end
 
 local function filesystemDialogAddExtensionFilter(filesystemDialog, extension)
 	filesystemDialog.extensionComboBox:addItem(extension)
-	filesystemDialog.extensionComboBox.width = math.max(filesystemDialog.extensionComboBox.width, unicode.wlen(extension) + 3)
+	filesystemDialog.extensionComboBox.width = math.max(filesystemDialog.extensionComboBox.width, unicode.len(extension) + 3)
 	filesystemDialog.extensionComboBox.localX = filesystemDialog.cancelButton.localX - filesystemDialog.extensionComboBox.width - 2
 	filesystemDialog.filesystemTree:addExtensionFilter(extension)
 
@@ -2147,7 +2129,7 @@ local function filesystemChooserDraw(object)
 	screen.drawRectangle(object.x, object.y, object.width - tipWidth, object.height, object.colors.background, object.colors.text, " ")
 	screen.drawRectangle(object.x + object.width - tipWidth, object.y, tipWidth, object.height, object.pressed and object.colors.tipText or object.colors.tipBackground, object.pressed and object.colors.tipBackground or object.colors.tipText, " ")
 	screen.drawText(object.x + object.width - math.floor(tipWidth / 2) - 1, y, object.pressed and object.colors.tipBackground or object.colors.tipText, "…")
-	screen.drawText(math.ceil(object.x + object.height / 2), y, object.colors.text, text.limit(object.path or object.placeholderText, object.width - tipWidth - 2, "left"))
+	screen.drawText(object.x + 1, y, object.colors.text, text.limit(object.path or object.placeholderText, object.width - tipWidth - 2, "left"))
 
 	return object
 end
@@ -2694,11 +2676,9 @@ local function textBoxDraw(object)
 
 	local x, y = nil, object.y + object.offset.vertical
 	local lineType, line, textColor
-	
 	for i = object.currentLine, object.currentLine + object.textHeight - 1 do
 		if object.linesCopy[i] then
 			lineType = type(object.linesCopy[i])
-			
 			if lineType == "string" then
 				line, textColor = text.limit(object.linesCopy[i], object.textWidth), object.colors.text
 			elseif lineType == "table" then
@@ -2714,7 +2694,7 @@ local function textBoxDraw(object)
 				1,
 				object.horizontalAlignment,
 				object.verticalAlignment,
-				unicode.wlen(line),
+				unicode.len(line),
 				1
 			)
 
@@ -3621,7 +3601,7 @@ end
 --------------------------------------------------------------------------------
 
 local function textUpdate(object)
-	object.width = unicode.wlen(object.text)
+	object.width = unicode.len(object.text)
 	
 	return object
 end
@@ -3694,7 +3674,7 @@ local function listUpdate(list)
 		-- Размеры хуйни
 		if list.cells[1][1].direction == GUI.DIRECTION_HORIZONTAL then
 			if list.offsetMode then
-				child.width, child.height = list.itemSize * 2 + unicode.wlen(child.text), list.height
+				child.width, child.height = list.itemSize * 2 + unicode.len(child.text), list.height
 			else
 				child.width, child.height = list.itemSize, list.height
 			end
@@ -3829,7 +3809,7 @@ end
 ---------------------------------------------------------------------------------------------------
 
 local function keyAndValueUpdate(object)
-	object.keyLength, object.valueLength = unicode.wlen(object.key), unicode.wlen(object.value)
+	object.keyLength, object.valueLength = unicode.len(object.key), unicode.len(object.value)
 	object.width = object.keyLength + object.valueLength
 end
 
@@ -3930,33 +3910,22 @@ end
 local function dropDownMenuItemDraw(item)
 	local yText = item.y + math.floor(item.height / 2)
 
-	if item.isTextItem then
-		local iconColor = item.color or item.parent.parent.colors.default.icon
+	if item.type == 1 then
 		local textColor = item.color or item.parent.parent.colors.default.text
 
 		if item.pressed then
-			iconColor = item.parent.parent.colors.selected.icon
 			textColor = item.parent.parent.colors.selected.text
-			screen.drawRectangle(item.x, yText, item.width, 1, item.parent.parent.colors.selected.background, textColor, " ")
+			screen.drawRectangle(item.x, item.y, item.width, item.height, item.parent.parent.colors.selected.background, textColor, " ")
 		elseif item.disabled then
-			iconColor = item.parent.parent.colors.disabled.icon
 			textColor = item.parent.parent.colors.disabled.text
 		end
 
-		-- Icon & text
-		if item.icon then
-			screen.drawText(item.x + item.height, yText, iconColor, item.icon)
-			screen.drawText(item.x + item.height * 2 + 2, yText, textColor, item.text)
-		else
-			screen.drawText(item.x + item.height, yText, textColor, item.text)
-		end
-
-		-- shortcut
+		screen.drawText(item.x + 1, yText, textColor, item.text)
 		if item.shortcut then
-			screen.drawText(item.x + item.width - unicode.wlen(item.shortcut) - item.height, yText, textColor, item.shortcut)
+			screen.drawText(item.x + item.width - unicode.len(item.shortcut) - 1, yText, textColor, item.shortcut)
 		end
 	else
-		screen.drawText(item.x, yText, item.parent.parent.colors.separator, string.rep(item.parent.parent.itemHeight % 2 == 0 and "▁" or "─", item.width))
+		screen.drawText(item.x, yText, item.parent.parent.colors.separator, string.rep("─", item.width))
 	end
 
 	return item
@@ -3972,9 +3941,9 @@ end
 
 local function dropDownMenuItemEventHandler(workspace, object, e1, ...)
 	if e1 == "touch" then
-		if object.isTextItem and not object.pressed then
+		if object.type == 1 and not object.pressed then
+
 			dropDownMenuReleaseItems(object.parent.parent)
-			
 			if #object.parent.parent.subMenus then
 				for i, subMenu in ipairs(object.parent.parent.subMenus) do
 			 		subMenu:remove()
@@ -3989,14 +3958,11 @@ local function dropDownMenuItemEventHandler(workspace, object, e1, ...)
 				object.parent.parent.parent:addChild(object.subMenu:releaseItems())
 				object.subMenu.localX = object.parent.parent.localX + object.parent.parent.width
 				object.subMenu.localY = object.parent.parent.localY + object.localY - 1
-				
 				if screen.getWidth() - object.parent.parent.localX - object.parent.parent.width + 1 < object.subMenu.width then
 					object.subMenu.localX = object.parent.parent.localX - object.subMenu.width
 					object.parent.parent:moveToFront()
 				end
-				
 				table.insert(object.parent.parent.subMenus, object.subMenu)
-				
 				workspace:draw()
 			else
 				event.sleep(0.2)
@@ -4004,7 +3970,6 @@ local function dropDownMenuItemEventHandler(workspace, object, e1, ...)
 				object.parent.parent.parent:remove()
 				
 				local objectIndex = object:indexOf()
-				
 				for i = 2, #object.parent.parent.parent.children do
 					if object.parent.parent.parent.children[i].onMenuClosed then
 						object.parent.parent.parent.children[i].onMenuClosed(objectIndex)
@@ -4022,10 +3987,9 @@ local function dropDownMenuItemEventHandler(workspace, object, e1, ...)
 end
 
 local function dropDownMenuGetHeight(menu)
-	local height = menu.itemHeight % 2 == 0 and 1 or 0
-
+	local height = 0
 	for i = 1, #menu.itemsContainer.children do
-		height = height + menu.itemsContainer.children[i].height
+		height = height + (menu.itemsContainer.children[i].type == 2 and 1 or menu.itemHeight)
 	end
 
 	return height
@@ -4037,11 +4001,9 @@ local function dropDownMenuReposition(menu)
 	menu.nextButton.localY = menu.height
 
 	local y = menu.itemsContainer.children[1].localY
-	
 	for i = 1, #menu.itemsContainer.children do
 		menu.itemsContainer.children[i].localY = y
 		menu.itemsContainer.children[i].width = menu.itemsContainer.width
-		
 		y = y + menu.itemsContainer.children[i].height
 	end
 
@@ -4052,7 +4014,6 @@ end
 local function dropDownMenuUpdate(menu)
 	if #menu.itemsContainer.children > 0 then
 		menu.height = math.min(dropDownMenuGetHeight(menu), menu.maximumHeight, screen.getHeight() - menu.y)
-
 		dropDownMenuReposition(menu)
 	end
 end
@@ -4065,25 +4026,15 @@ local function dropDownMenuRemoveItem(menu, index)
 	return menu
 end
 
-local function dropDownMenuAddItem(menu, a1, a2, a3, a4, a5)
+local function dropDownMenuAddItem(menu, text, disabled, shortcut, color)
 	local item = menu.itemsContainer:addChild(GUI.object(1, 1, 1, menu.itemHeight))
-
-	if type(a1) == "string" and type(a2) == "string" then
-		item.icon = a1
-		item.text = a2
-		item.disabled = a3
-		item.shortcut = a4
-		item.color = a5
-	else
-		item.text = a1
-		item.disabled = a2
-		item.shortcut = a3
-		item.color = a4
-	end
-
+	item.type = 1
+	item.text = text
+	item.disabled = disabled
+	item.shortcut = shortcut
+	item.color = color
 	item.draw = dropDownMenuItemDraw
 	item.eventHandler = dropDownMenuItemEventHandler
-	item.isTextItem = true
 
 	menu:update()
 
@@ -4092,7 +4043,7 @@ end
 
 local function dropDownMenuAddSeparator(menu)
 	local item = menu.itemsContainer:addChild(GUI.object(1, 1, 1, 1))
-	
+	item.type = 2
 	item.draw = dropDownMenuItemDraw
 	item.eventHandler = dropDownMenuItemEventHandler
 
@@ -4105,7 +4056,6 @@ local function dropDownMenuScrollDown(workspace, menu)
 	local limit, first = 1, menu.itemsContainer.children[1]
 
 	first.localY = first.localY + menu.scrollSpeed
-	
 	if first.localY > limit then
 		first.localY = limit
 	end
@@ -4115,10 +4065,9 @@ local function dropDownMenuScrollDown(workspace, menu)
 end
 
 local function dropDownMenuScrollUp(workspace, menu)
-	local limit, first = -(dropDownMenuGetHeight(menu) - menu.height - 1), menu.itemsContainer.children[1]
+	local limit, first = -(#menu.itemsContainer.children * menu.itemHeight - menu.height - 1), menu.itemsContainer.children[1]
 
 	first.localY = first.localY - menu.scrollSpeed
-
 	if first.localY < limit then
 		first.localY = limit
 	end
@@ -4171,40 +4120,20 @@ local function dropDownMenuAdd(parentContainer, menu)
 	return container:addChild(menu:releaseItems())
 end
 
-function GUI.dropDownMenu(
-	x,
-	y,
-	width,
-	maximumHeight,
-	itemHeight,
-	backgroundColor,
-	iconColor,
-	textColor,
-	backgroundPressedColor,
-	iconPressedColor,
-	textPressedColor,
-	disabledIconColor,
-	disabledTextColor,
-	separatorColor,
-	backgroundTransparency,
-	shadowTransparency
-)
+function GUI.dropDownMenu(x, y, width, maximumHeight, itemHeight, backgroundColor, textColor, backgroundPressedColor, textPressedColor, disabledColor, separatorColor, backgroundTransparency, shadowTransparency)
 	local menu = GUI.container(x, y, width, 1)
 	
 	menu.colors = {
 		default = {
 			background = backgroundColor,
-			text = textColor,
-			icon = iconColor
+			text = textColor
 		},
 		selected = {
 			background = backgroundPressedColor,
-			text = textPressedColor,
-			icon = iconPressedColor
+			text = textPressedColor
 		},
 		disabled = {
-			text = disabledTextColor,
-			icon = disabledIconColor
+			text = disabledColor
 		},
 		separator = separatorColor,
 		transparency = {
@@ -4216,11 +4145,8 @@ function GUI.dropDownMenu(
 	menu.scrollSpeed = 1
 
 	menu.itemsContainer = menu:addChild(GUI.container(1, 1, menu.width, menu.height))
-
-	-- RIP ▲▼
-	-- ⬆⬇
-	menu.prevButton = menu:addChild(GUI.button(1, 1, menu.width, 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, "⬆"))
-	menu.nextButton = menu:addChild(GUI.button(1, 1, menu.width, 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, "⬇"))
+	menu.prevButton = menu:addChild(GUI.button(1, 1, menu.width, 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, "▲"))
+	menu.nextButton = menu:addChild(GUI.button(1, 1, menu.width, 1, backgroundColor, textColor, backgroundPressedColor, textPressedColor, "▼"))
 	menu.prevButton.colors.transparency, menu.nextButton.colors.transparency = backgroundTransparency, backgroundTransparency
 	menu.prevButton.onTouch = dropDownMenuPrevButtonOnTouch
 	menu.nextButton.onTouch = dropDownMenuNextButtonOnTouch
@@ -4243,40 +4169,23 @@ end
 
 local function contextMenuUpdate(menu)
 	if #menu.itemsContainer.children > 0 then
-		local widestItem, widestShortcut, haveIcon, item = 0, 0, false
-		
+		local widestItem, widestShortcut = 0, 0
 		for i = 1, #menu.itemsContainer.children do
-			item = menu.itemsContainer.children[i]
-
-			if item.isTextItem then
-				if item.icon then
-					haveIcon = true
-				end
-
-				widestItem = math.max(widestItem, unicode.wlen(item.text))
-				
-				if item.shortcut then
-					widestShortcut = math.max(widestShortcut, unicode.wlen(item.shortcut))
+			if menu.itemsContainer.children[i].type == 1 then
+				widestItem = math.max(widestItem, unicode.len(menu.itemsContainer.children[i].text))
+				if menu.itemsContainer.children[i].shortcut then
+					widestShortcut = math.max(widestShortcut, unicode.len(menu.itemsContainer.children[i].shortcut))
 				end
 			end
 		end
 
-		menu.width =
-			menu.itemHeight * 2 +
-			(haveIcon and menu.itemHeight + 2 or 0) +
-			widestItem +
-			(widestShortcut > 0 and widestShortcut + menu.itemHeight + 1 or 0)
-		
-		menu.height = math.min(dropDownMenuGetHeight(menu), menu.maximumHeight)
-		
+		menu.width, menu.height = 2 + widestItem + (widestShortcut > 0 and 3 + widestShortcut or 0), math.min(dropDownMenuGetHeight(menu), menu.maximumHeight)
 		dropDownMenuReposition(menu)
 
 		local bufferWidth, bufferHeight = screen.getResolution()
-		
 		if menu.x + menu.width + 1 >= bufferWidth then
 			menu.localX = bufferWidth - menu.width - 1
 		end
-		
 		if menu.y + menu.height >= bufferHeight then
 			menu.localY = bufferHeight - menu.height
 		end
@@ -4285,15 +4194,8 @@ end
 
 local contextMenuCreate, contextMenuaddSubMenuItem
 
-contextMenuaddSubMenuItem = function(menu, a1, a2, a3)
-	local item
-
-	if type(a1) == "string" and type(a2) == "string" then
-		item = menu:addItem(a1, a2, a3, "►")
-	else
-		item = menu:addItem(a1, a2, "►")
-	end
-
+contextMenuaddSubMenuItem = function(menu, text, disabled)
+	local item = menu:addItem(text, disabled, "►")
 	item.subMenu = contextMenuCreate(1, 1)
 	item.subMenu.colors = menu.colors
 	
@@ -4305,22 +4207,16 @@ contextMenuCreate = function(x, y, backgroundColor, textColor, backgroundPressed
 		x,
 		y,
 		1,
-		math.ceil(screen.getHeight() * 0.7),
-		2,
-		GUI.CONTEXT_MENU_DEFAULT_BACKGROUND_COLOR,
-		GUI.CONTEXT_MENU_DEFAULT_ICON_COLOR,
-		GUI.CONTEXT_MENU_DEFAULT_TEXT_COLOR,
-
-		GUI.CONTEXT_MENU_PRESSED_BACKGROUND_COLOR,
-		GUI.CONTEXT_MENU_PRESSED_ICON_COLOR,
-		GUI.CONTEXT_MENU_PRESSED_TEXT_COLOR,
-
-		GUI.CONTEXT_MENU_DISABLED_ICON_COLOR,
-		GUI.CONTEXT_MENU_DISABLED_TEXT_COLOR,
-		
-		GUI.CONTEXT_MENU_SEPARATOR_COLOR,
-		GUI.CONTEXT_MENU_BACKGROUND_TRANSPARENCY,
-		GUI.CONTEXT_MENU_SHADOW_TRANSPARENCY
+		math.ceil(screen.getHeight() * 0.5),
+		1,
+		backgroundColor or GUI.CONTEXT_MENU_DEFAULT_BACKGROUND_COLOR,
+		textColor or GUI.CONTEXT_MENU_DEFAULT_TEXT_COLOR,
+		backgroundPressedColor or GUI.CONTEXT_MENU_PRESSED_BACKGROUND_COLOR,
+		textPressedColor or GUI.CONTEXT_MENU_PRESSED_TEXT_COLOR,
+		disabledColor or GUI.CONTEXT_MENU_DISABLED_COLOR,
+		separatorColor or GUI.CONTEXT_MENU_SEPARATOR_COLOR,
+		backgroundTransparency or GUI.CONTEXT_MENU_BACKGROUND_TRANSPARENCY,
+		shadowTransparency or GUI.CONTEXT_MENU_SHADOW_TRANSPARENCY
 	)
 
 	menu.update = contextMenuUpdate
@@ -4349,7 +4245,7 @@ local function comboBoxDraw(object)
 	-- Item
 	if object.dropDownMenu.itemsContainer.children[object.selectedItem] then
 		screen.drawText(
-			math.ceil(object.x + object.height / 2),
+			object.x + 1,
 			math.floor(object.y + object.height / 2),
 			object.colors.default.text,
 			text.limit(object.dropDownMenu.itemsContainer.children[object.selectedItem].text, object.width - object.height - 2, "right")
@@ -4359,7 +4255,7 @@ local function comboBoxDraw(object)
 	-- Arrow
 	width = object.x + width
 	screen.drawRectangle(width, object.y, arrowSize, object.height, object.colors.arrow.background, object.colors.arrow.text, " ")
-	screen.drawText(math.floor(width + arrowSize / 2), math.floor(object.y + object.height / 2), object.colors.arrow.text, object.pressed and "⬆" or "⬇")
+	screen.drawText(math.floor(width + arrowSize / 2), math.floor(object.y + object.height / 2), object.colors.arrow.text, object.pressed and "▲" or "▼")
 
 	return object
 end
@@ -4414,8 +4310,8 @@ local function comboBoxAddSeparator(object)
 	return object.dropDownMenu:addSeparator()
 end
 
-function GUI.comboBox(x, y, width, height, backgroundColor, textColor, arrowBackgroundColor, arrowTextColor)
-	local comboBox = GUI.object(x, y, width, height)
+function GUI.comboBox(x, y, width, itemSize, backgroundColor, textColor, arrowBackgroundColor, arrowTextColor)
+	local comboBox = GUI.object(x, y, width, itemSize)
 	
 	comboBox.colors = {
 		default = {
@@ -4437,15 +4333,12 @@ function GUI.comboBox(x, y, width, height, backgroundColor, textColor, arrowBack
 		1,
 		1,
 		math.ceil(screen.getHeight() * 0.5),
-		height == 1 and 1 or 2,
+		itemSize,
 		comboBox.colors.default.background, 
-		comboBox.colors.default.text, 
 		comboBox.colors.default.text, 
 		comboBox.colors.selected.background,
 		comboBox.colors.selected.text,
-		comboBox.colors.selected.text,
-		GUI.CONTEXT_MENU_DISABLED_ICON_COLOR,
-		GUI.CONTEXT_MENU_DISABLED_TEXT_COLOR,
+		GUI.CONTEXT_MENU_DISABLED_COLOR,
 		GUI.CONTEXT_MENU_SEPARATOR_COLOR,
 		GUI.CONTEXT_MENU_BACKGROUND_TRANSPARENCY, 
 		GUI.CONTEXT_MENU_SHADOW_TRANSPARENCY
@@ -4478,10 +4371,7 @@ end
 
 local function windowDraw(window)
 	containerDraw(window)
-
-	if window.drawShadow then
-		GUI.drawShadow(window.x, window.y, window.width, window.height, GUI.WINDOW_SHADOW_TRANSPARENCY, true)
-	end
+	GUI.drawShadow(window.x, window.y, window.width, window.height, GUI.WINDOW_SHADOW_TRANSPARENCY, true)
 
 	return window
 end
@@ -4516,37 +4406,35 @@ local function windowCheck(window, x, y)
 end
 
 local function windowEventHandler(workspace, window, e1, e2, e3, e4, ...)
-	if not window.movingEnabled then
-		return
-	end
+	if window.movingEnabled then
+		if e1 == "touch" then
+			e3, e4 = math.ceil(e3), math.ceil(e4)
 
-	if e1 == "touch" then
-		e3, e4 = math.ceil(e3), math.ceil(e4)
+			if not windowCheck(window, e3, e4) then
+				window.lastTouchX, window.lastTouchY = e3, e4
+			end
 
-		if not windowCheck(window, e3, e4) then
+			if window ~= window.parent.children[#window.parent.children] then
+				window:focus()
+				
+				workspace:draw()
+			end
+		
+		elseif e1 == "drag" and window.lastTouchX then
+			e3, e4 = math.ceil(e3), math.ceil(e4)
+
+			if windowCheck(window, e3, e4) then
+				return
+			end
+
+			window.localX, window.localY = window.localX + e3 - window.lastTouchX, window.localY + e4 - window.lastTouchY
 			window.lastTouchX, window.lastTouchY = e3, e4
-		end
-
-		if window ~= window.parent.children[#window.parent.children] then
-			window:focus()
 			
 			workspace:draw()
-		end
-	
-	elseif e1 == "drag" and window.lastTouchX then
-		e3, e4 = math.ceil(e3), math.ceil(e4)
-
-		if windowCheck(window, e3, e4) then
-			return
-		end
-
-		window.localX, window.localY = window.localX + e3 - window.lastTouchX, window.localY + e4 - window.lastTouchY
-		window.lastTouchX, window.lastTouchY = e3, e4
 		
-		workspace:draw()
-	
-	elseif e1 == "drop" then
-		window.lastTouchX, window.lastTouchY = nil, nil
+		elseif e1 == "drop" then
+			window.lastTouchX, window.lastTouchY = nil, nil
+		end
 	end
 end
 
@@ -4631,7 +4519,6 @@ function GUI.window(x, y, width, height)
 	
 	window.passScreenEvents = false
 	window.movingEnabled = true
-	window.drawShadow = true
 
 	window.resize = windowResize
 	window.maximize = GUI.windowMaximize
@@ -4699,7 +4586,7 @@ local function menuDraw(menu)
 end
 
 local function menuAddItem(menu, text, textColor)
-	local item = menu:addChild(pressable(1, 1, unicode.wlen(text) + 2, 1, nil, textColor or menu.colors.default.text, menu.colors.selected.background, menu.colors.selected.text, 0x0, 0x0, text))
+	local item = menu:addChild(pressable(1, 1, unicode.len(text) + 2, 1, nil, textColor or menu.colors.default.text, menu.colors.selected.background, menu.colors.selected.text, 0x0, 0x0, text))
 	item.eventHandler = pressableEventHandler
 
 	return item
@@ -4821,8 +4708,8 @@ end
 ---------------------------------------------------------------------------------------------------
 
 local function tableHeaderDraw(self)
-	screen.drawRectangle(self.x, self.y, self.width, self.height, self.parent.colors.headerBackground, self.parent.colors.headerForeground, " ")
-	screen.drawText(self.x + 1, self.y, self.parent.colors.headerForeground, self.text)
+	screen.drawRectangle(self.x, self.y, self.width, self.height, self.parent.colors.headerBackground, self.parent.colors.headerText, " ")
+	screen.drawText(self.x + 1, self.y, self.parent.colors.headerText, self.text)
 end
 
 local function tableAddColumn(self, headerText, sizePolicy, size)
@@ -4903,34 +4790,28 @@ end
 
 function GUI.tableCellDraw(self)
 	local background, foreground
-
 	if self.selected then
-		background, foreground =
-			self.colors.selectionBackground or self.parent.colors.itemSelectionBackground,
-			self.colors.selectionForeground or self.parent.colors.itemSelectionForeground
-	
+		background, foreground = self.colors.selectionBackground, self.colors.selectionText
 	elseif self.alternative then
-		background, foreground =
-			self.colors.alternativeBackground or self.parent.colors.itemAlternativeBackground,
-			self.colors.alternativeForeground or self.parent.colors.itemAlternativeForeground
-	
+		background, foreground = self.colors.alternativeBackground, self.colors.alternativeText
 	else
-		background, foreground =
-			self.colors.defaultBackground or self.parent.colors.itemDefaultBackground,
-			self.colors.defaultForeground or self.parent.colors.itemDefaultForeground
+		background, foreground = self.colors.defaultBackground, self.colors.defaultText
 	end
 
 	if background then
-		screen.drawRectangle(self.x, self.y, self.width, self.height, background, foreground or 0x0, " ")
+		screen.drawRectangle(self.x, self.y, self.width, self.height,
+			background,
+			foreground,
+		" ")
 	end
 
-	return foreground or 0x0
+	return foreground
 end
 
-function GUI.tableCell()
+function GUI.tableCell(colors)
 	local cell = GUI.object(1, 1, 1, 1)
 
-	cell.colors = {}
+	cell.colors = colors
 	cell.draw = GUI.tableCellDraw
 	cell.eventHandler = GUI.tableCellEventHandler
 
@@ -4938,11 +4819,11 @@ function GUI.tableCell()
 end
 
 local function tableTextCellDraw(self)
-	screen.drawText(self.x + 1, self.y, GUI.tableCellDraw(self) or 0x0, self.text)
+	screen.drawText(self.x + 1, self.y, GUI.tableCellDraw(self), self.text)
 end
 
-function GUI.tableTextCell(text)
-	local cell = GUI.tableCell()
+function GUI.tableTextCell(colors, text)
+	local cell = GUI.tableCell(colors)
 
 	cell.text = text
 	cell.draw = tableTextCellDraw
@@ -4957,27 +4838,11 @@ local function tableDraw(self)
 	layoutDraw(self)
 end
 
-local function tableGetVerticalScroll(self)
-	local horizontalMargin, verticalMargin = self:getMargin(1, 2)
-	return verticalMargin
-end
-
-local function tableSetVerticalScroll(self, value)
-	local horizontalMargin = self:getMargin(1, 2)
-	local columnCount = #self.columnSizes
-	local maxValue = -self.itemHeight * (#self.children - columnCount) / columnCount + 1
-
-	for i = 1, columnCount do
-		self:setMargin(i, 2, horizontalMargin,
-			math.max(
-				maxValue,
-				math.min(
-					0,
-					value
-				)
-			)
-		)
-	end
+function onBackgroundTouch(workspace, self, e1, e2, e3, e4, e5, ...)
+	-- Deselecting all rows
+	self.selectedRows = {}
+	tableUpdateSelection(self)
+	workspace:draw()
 end
 
 function GUI.tableEventHandler(workspace, self, e1, e2, e3, e4, e5, ...)
@@ -4992,54 +4857,35 @@ function GUI.tableEventHandler(workspace, self, e1, e2, e3, e4, e5, ...)
 		end
 
 		if not itemTouched then
-			if self.onBackgroundTouch then
-				self.onBackgroundTouch(workspace, self, e1, e2, e3, e4, e5, ...)
-			end
+			onBackgroundTouch(workspace, self, e1, e2, e3, e4, e5, ...)
+		end
+	elseif e1 == "scroll" then
+		local columnCount = #self.columnSizes
+		local horizontalMargin, verticalMargin = self:getMargin(1, 2)
+
+		for i = 1, columnCount do
+			self:setMargin(i, 2, horizontalMargin,
+				math.max(
+					-self.itemHeight * (#self.children - columnCount) / columnCount + 1,
+					math.min(
+						0,
+						verticalMargin + e5
+					)
+				)
+			)
 		end
 
-	elseif e1 == "scroll" then
-		self:setVerticalScroll(self:getVerticalScroll() + e5)
 		workspace:draw()
 	end
 end
 
-function GUI.table(
-	x,
-	y,
-	width,
-	height,
-	itemHeight,
-
-	background,
-	
-	headerBackground,
-	headerForeground,
-
-	itemDefaultBackground,
-	itemDefaultForeground,
-
-	itemAlternativeBackground,
-	itemAlternativeForeground,
-
-	itemSelectionBackground,
-	itemSelectionForeground
-)
+function GUI.table(x, y, width, height, itemHeight, backgroundColor, headerBackgroundColor, headerTextColor)
 	local table = GUI.layout(x, y, width, height, 0, 2)
 
 	table.colors = {
-		background = background,
-
-		headerBackground = headerBackground,
-		headerForeground = headerForeground,
-
-		itemDefaultBackground = itemDefaultBackground,
-		itemDefaultForeground = itemDefaultForeground,
-
-		itemAlternativeBackground = itemAlternativeBackground,
-		itemAlternativeForeground = itemAlternativeForeground,
-
-		itemSelectionBackground = itemSelectionBackground,
-		itemSelectionForeground = itemSelectionForeground
+		background = backgroundColor,
+		headerBackground = headerBackgroundColor,
+		headerText = headerTextColor
 	}
 
 	table.itemHeight = itemHeight
@@ -5047,10 +4893,9 @@ function GUI.table(
 
 	table.addColumn = tableAddColumn
 	table.addRow = tableAddRow
-	table.setVerticalScroll = tableSetVerticalScroll
-	table.getVerticalScroll = tableGetVerticalScroll
 	table.clear = tableClear
 	table.draw = tableDraw
+	table.onBackgroundTouch = onBackgroundTouch
 	table.eventHandler = GUI.tableEventHandler
 
 	table:setRowHeight(1, GUI.SIZE_POLICY_ABSOLUTE, itemHeight)
@@ -5058,6 +4903,51 @@ function GUI.table(
 
 	return table
 end
+
+---------------------------------------------------------------------------------------------------
+
+-- local workspace = GUI.workspace()
+
+-- workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x2D2D2D))
+
+-- local t = workspace:addChild(GUI.table(3, 2, 80, 30, 1,
+-- 	0xF0F0F0,
+-- 	0xFFFFFF,
+-- 	0x000000
+-- ))
+
+-- t:addColumn("Name", GUI.SIZE_POLICY_RELATIVE, 0.6)
+-- t:addColumn("Date", GUI.SIZE_POLICY_RELATIVE, 0.4)
+-- t:addColumn("Size", GUI.SIZE_POLICY_ABSOLUTE, 16)
+-- t:addColumn("Type", GUI.SIZE_POLICY_ABSOLUTE, 10)
+
+-- local colors1 = {
+-- 	defaultBackground = nil,
+-- 	defaultText = 0x3C3C3C,
+-- 	alternativeBackground = 0xE1E1E1,
+-- 	alternativeText = 0x3C3C3C,
+-- 	selectionBackground = 0xCC2440,
+-- 	selectionText = 0xFFFFFF,
+-- }
+
+-- local colors2 = {}
+-- for key, value in pairs(colors1) do
+-- 	colors2[key] = value
+-- end
+-- colors2.defaultText, colors2.alternativeText = 0xA5A5A5, 0xA5A5A5
+
+-- for i = 1, 10 do
+-- 	t:addRow(
+-- 		GUI.tableTextCell(colors1, "Ehehehe " .. i),
+-- 		GUI.tableTextCell(colors2, "12.02.2018"),
+-- 		GUI.tableTextCell(colors2, "114.23 KB"),
+-- 		GUI.tableTextCell(colors2, ".lua")
+-- 	)
+-- end
+
+-- workspace:draw()
+-- workspace:start()
+
 
 ---------------------------------------------------------------------------------------------------
 
